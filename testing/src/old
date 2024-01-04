@@ -1,0 +1,106 @@
+fn main() {
+  let webview = WebView::create(Some(HWND(527056)), true).unwrap();
+
+  // Bind a quick and dirty calculator callback.
+  webview
+    .bind("hostCallback", move |request: Vec<Value>| {
+      if let [Value::String(str), Value::Number(a), Value::Number(b)] = &request[..] {
+        if str == "Add" {
+          let result = a.as_f64().unwrap_or(0f64) + b.as_f64().unwrap_or(0f64);
+          let result = Number::from_f64(result);
+          if let Some(result) = result {
+            return Ok(Value::Number(result));
+          }
+        }
+      }
+
+      Err(Error::WebView2Error(webview2_com::Error::CallbackError(
+        String::from(r#"Usage: window.hostCallback("Add", a, b)"#),
+      )))
+    })
+    .unwrap();
+
+  // Configure the target URL and add an init script to trigger the calculator callback.
+  webview
+    .set_title("webview2-com example (crates/webview2-com/examples)")
+    .unwrap()
+    .init(r#"window.hostCallback("Add", 2, 6).then(result => console.log(`Result: ${result}`));"#)
+    .unwrap()
+    .navigate("https://google.com")
+    .unwrap();
+
+  // Off we go....
+  let (a, mut msg, hwnd) = webview.run().unwrap();
+
+  let webview = WebView::create(Some(HWND(1181822)), true).unwrap();
+
+  // Bind a quick and dirty calculator callback.
+  webview
+    .bind("hostCallback", move |request: Vec<Value>| {
+      if let [Value::String(str), Value::Number(a), Value::Number(b)] = &request[..] {
+        if str == "Add" {
+          let result = a.as_f64().unwrap_or(0f64) + b.as_f64().unwrap_or(0f64);
+          let result = Number::from_f64(result);
+          if let Some(result) = result {
+            return Ok(Value::Number(result));
+          }
+        }
+      }
+
+      Err(Error::WebView2Error(webview2_com::Error::CallbackError(
+        String::from(r#"Usage: window.hostCallback("Add", a, b)"#),
+      )))
+    })
+    .unwrap();
+
+  // Configure the target URL and add an init script to trigger the calculator callback.
+  webview
+    .set_title("webview2-com example (crates/webview2-com/examples)")
+    .unwrap()
+    .init(r#"window.hostCallback("Add", 2, 6).then(result => console.log(`Result: ${result}`));"#)
+    .unwrap()
+    .navigate("https://youtube.com")
+    .unwrap();
+
+  // Off we go....
+  let (b, mut msg_b, hwnd_b) = webview.run().unwrap();
+
+  loop {
+    while let Ok(f) = a.rx.try_recv() {
+      (f)(a.clone());
+    }
+    while let Ok(f) = b.rx.try_recv() {
+      (f)(a.clone());
+    }
+
+    unsafe {
+      let result = WindowsAndMessaging::GetMessageW(&mut msg, hwnd, 0, 0).0;
+
+      match result {
+        -1 => break Err(windows::core::Error::from_win32().into()),
+        0 => break Ok(()),
+        _ => match msg.message {
+          WindowsAndMessaging::WM_APP => (),
+          _ => {
+            WindowsAndMessaging::TranslateMessage(&msg);
+            WindowsAndMessaging::DispatchMessageW(&msg);
+          }
+        },
+      }
+
+      let result = WindowsAndMessaging::GetMessageW(&mut msg_b, hwnd_b, 0, 0).0;
+
+      match result {
+        -1 => break Err(windows::core::Error::from_win32().into()),
+        0 => break Ok(()),
+        _ => match msg_b.message {
+          WindowsAndMessaging::WM_APP => (),
+          _ => {
+            WindowsAndMessaging::TranslateMessage(&msg_b);
+            WindowsAndMessaging::DispatchMessageW(&msg_b);
+          }
+        },
+      }
+    }
+  }
+}
